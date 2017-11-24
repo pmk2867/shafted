@@ -1,0 +1,6 @@
+*.md~
+*.py~
+*.pyc
+*.un*
+*.swp*
+*.gitignore~

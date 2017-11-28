@@ -19,13 +19,7 @@ class speedTest(unittest.TestCase):
         """
         self.dut = speed.speedCounter()
 
-        self.isWindows = (sys.platform.startswith('win') or
-                          sys.platform.startswith('cyg'))
-
-        if self.isWindows:
-            self.tolerance = 5 # In units of percent.
-        else:
-            self.tolerance = 1
+        self.tolerance = 1
 
     def do_delay(self, delay):
         """
@@ -34,16 +28,8 @@ class speedTest(unittest.TestCase):
 
         :param delay [int|float] The duration in seconds to delay.
         """
-        self.dut.trigger()
-
-        timePrev = time.time()
-
-        if self.isWindows:
-            while(time.time() - timePrev < delay):
-                continue
-        else:
-            time.sleep(delay)
-
+        self.inject_time = time.time() - delay
+        self.dut.timeNow = self.inject_time
         self.dut.trigger()
 
     def check_tolerance(self, value, expected):
@@ -67,6 +53,9 @@ class speedTest(unittest.TestCase):
         """
         self.do_delay(0.010)
 
+        self.assertEqual(self.inject_time, self.dut.timeLast)
+        self.assertNotEqual(self.inject_time, self.dut.timeNow)
+
         self.assertTrue(self.check_tolerance(round(self.dut.get_hertz()), 100))
         self.assertTrue(self.check_tolerance(round(self.dut.get_per_minute()), 6000))
         self.assertTrue(self.check_tolerance(round(self.dut.get_per_hour()), 360000))
@@ -77,9 +66,13 @@ class speedTest(unittest.TestCase):
         """
         self.do_delay(1)
 
+        self.assertEqual(self.inject_time, self.dut.timeLast)
+        self.assertNotEqual(self.inject_time, self.dut.timeNow)
+
         self.assertTrue(self.check_tolerance(round(self.dut.get_hertz()), 1))
         self.assertTrue(self.check_tolerance(round(self.dut.get_per_minute()), 60))
         self.assertTrue(self.check_tolerance(round(self.dut.get_per_hour()), 3600))
 
     def tearDown(self):
         del self.dut
+        del self.inject_time

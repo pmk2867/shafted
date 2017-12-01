@@ -20,9 +20,7 @@ class adc(object):
         :param parameters [list]: A list of parameters that should be written to
                                   the instantiated device.
         """
-        print ("Entered ADC. Initializing...")
         self.device = device
-        print ("Device initialized!")
 
     def read(self):
         """
@@ -30,7 +28,6 @@ class adc(object):
 
         :return value [int]: Signed integer representation of the ADC value.
         """
-
         return self.device.read()
 
     def write(self, position, value):
@@ -43,5 +40,4 @@ class adc(object):
                                value wanting to be changed, indexed from 0.
         :param value [int|float|str]: The new value to change to.
         """
-
         self.device.change_param(position, value)

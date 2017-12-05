@@ -8,10 +8,9 @@ def check_params(parameters):
     parameters.
 
     :param parameters [list]: Should contain all parameters in this order:
-                              [channel, gain, address, busnum]
-                              Where the address and busnum are optional.
+                               (channel, gain, address, busnum)
+                               Where the address and busnum are optional.
     """
-    print "Checking parameters..."
     # Require that at least two parameters (a channel and gain) are passed.
     assert len(parameters) >= 2
 
@@ -43,9 +42,12 @@ class ads1115_single(object):
         """
         Initialize the single-ended channel of the ADS1115 chip.
 
-        :param parameters [list]: List of parameters [channel, gain, address, busnum]
+        :param parameters [tuple]: Tuple of parameters (channel,
+                                                        gain,
+                                                        address,
+                                                        busnum)
         """
-        self.parameters = parameters
+        self.parameters = list(parameters)
         check_params(self.parameters)
 
         try:
@@ -107,9 +109,12 @@ class ads1115_differential(object):
         Channel 2 - A1 Minus A3
         Channel 3 - A2 Minus A3
 
-        :param parameters [list]: List of parameters [channel, gain, address, busnum]
+        :param parameters [tuple]: Tuple of parameters (channel,
+                                                        gain,
+                                                        address,
+                                                        busnum)
         """
-        self.parameters = parameters
+        self.parameters = list(parameters)
         check_params(self.parameters)
 
         try:

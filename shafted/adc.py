@@ -1,6 +1,5 @@
 #!/usr/bin/python
 
-import inspect
 import time
 
 class adc(object):

@@ -13,10 +13,12 @@ class speedCounter(object):
         self.timeNow = time.time()
         self.timeLast = time.time()
 
-    def trigger(self):
+    def trigger(self, channel=None):
         """
         Checks current time when the trigger occurs and finds the difference
         from the last trigger.
+
+        :param channel [int]: Optional parameter indicating triggered channel.
         """
         self.timeLast = self.timeNow
         self.timeNow = time.time()
@@ -30,7 +32,10 @@ class speedCounter(object):
 
         :return frequency [Hz]
         """
-        return round(1/self.difference, 3)
+        if self.difference != 0:
+            return round(1/self.difference, 3)
+        else:
+            return False
 
     def get_per_minute(self):
         """
@@ -40,7 +45,10 @@ class speedCounter(object):
 
         :return frequency [1/minute]
         """
-        return round(1/self.difference * 60, 3)
+        if self.difference != 0:
+            return round(1/self.difference * 60, 3)
+        else:
+            return False
 
     def get_per_hour(self):
         """
@@ -50,4 +58,7 @@ class speedCounter(object):
 
         :return frequency [1/hour]
         """
-        return round(1/self.difference * 60 * 60, 3)
+        if self.difference != 0:
+            return round(1/self.difference * 60 * 60, 3)
+        else:
+            return False

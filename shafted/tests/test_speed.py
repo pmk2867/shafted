@@ -19,6 +19,8 @@ class speedTest(unittest.TestCase):
         """
         self.dut = speed.speedCounter()
 
+        self.inject_time = time.time()
+
         self.tolerance = 1
 
     def do_delay(self, delay):
@@ -47,6 +49,13 @@ class speedTest(unittest.TestCase):
 
         return value > lower_bound and value < upper_bound
 
+    def test_false_trigger(self):
+        """
+        Test that the speedcounter returns false if it has not been triggered
+        since instantiation.
+        """
+        self.assertFalse(self.dut.get_hertz())
+
     def test_trigger_10ms(self):
         """
         Test that the speedcounter can track a trigger with a 10ms period.
@@ -72,6 +81,21 @@ class speedTest(unittest.TestCase):
         self.assertTrue(self.check_tolerance(round(self.dut.get_hertz()), 1))
         self.assertTrue(self.check_tolerance(round(self.dut.get_per_minute()), 60))
         self.assertTrue(self.check_tolerance(round(self.dut.get_per_hour()), 3600))
+
+    def test_channel_trigger(self):
+        """
+        Test that the speedcounter is completely agnostic to whether or not it's
+        passed a channel value or not.
+        """
+        self.do_delay(1)
+        self.dut.trigger(1)
+
+        # Because the trigger happened again very shortly after the "1 second"
+        # trigger, the below statement should evalue to false, indicating
+        # that the trigger worked even though it was passed a value, while
+        # it was not passed a value within the do_delay() method.
+        self.assertFalse(self.check_tolerance(round(self.dut.get_hertz()), 1))
+
 
     def tearDown(self):
         del self.dut

@@ -10,17 +10,25 @@ from shafted import *
 # This is currently just in testing stage. This is not to be a representative of
 # any final products.
 
+# Configure the ADC to be a differential measurement on channel 0
+# (Channel A0 - Channel A1) at a gain of 2/3 (each bit is worth 187.5uV)
+# meaning the ADC can detect +/- 6.144V.
 my_adc = adc.adc(device_drivers.ADS1115.ads1115_differential((0, 2/3)))
 
+# Configure the two speed counters.
 speed_0 = speed.speedCounter()
 speed_1 = speed.speedCounter()
 
+# Configure which pins on the Raspberry Pi are active inputs.
 GPIO.setup(5, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 GPIO.setup(6, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
+# Tie the input pins to the speed counters by making sure the pins
+# correctly trigger the speedCounter when the pin falls.
 GPIO.add_event_detect(5, GPIO.FALLING, callback=speed_0.trigger)
 GPIO.add_event_detect(6, GPIO.FALLING, callback=speed_1.trigger)
 
+# Configure the times for the print and sampling stages.
 prev_time = time.time()
 last_print = time.time()
 current_adc_val = 0
@@ -30,7 +38,7 @@ while (1):
         current_adc_val = my_adc.read()
         prev_time = time.time()
 
-    if time.time() - last_print >= 0.75:
+    if time.time() - last_print >= 0.01:
         print "Last known ADC value is {}".format(current_adc_val)
         print "Last known frequency is {} Hz".format(speed_0.get_hertz())
         last_print = time.time()

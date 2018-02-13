@@ -21,17 +21,23 @@ GPIO.setup(6, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 GPIO.add_event_detect(5, GPIO.FALLING, callback=speed_0.trigger)
 GPIO.add_event_detect(6, GPIO.FALLING, callback=speed_1.trigger)
 
+start_time = time.time()
+
 prev_time = time.time()
 last_print = time.time()
 current_adc_val = 0
+
+f = open('test_data.csv', 'w')
+f.write('Time,ADC,Speed\n')
 
 while (1):
     if time.time() - prev_time > 0.01:
         current_adc_val = my_adc.read()
         prev_time = time.time()
 
-    if time.time() - last_print >= 0.75:
-        print "Last known ADC value is {}".format(current_adc_val)
-        print "Last known frequency is {} Hz".format(speed_0.get_hertz())
+    if time.time() - last_print >= 0.01:
+        f.write('{},{},{}\n'.format(time.time()-start_time,
+                                  my_adc.read(),
+                                  speed_0.get_hertz()))
         last_print = time.time()
 

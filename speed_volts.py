@@ -10,14 +10,21 @@ from shafted import *
 # This is currently just in testing stage. This is not to be a representative of
 # any final products.
 
+# Configure the ADC to be a differential measurement on channel 0
+# (Channel A0 - Channel A1) at a gain of 2/3 (each bit is worth 187.5uV)
+# meaning the ADC can detect +/- 6.144V.
 my_adc = adc.adc(device_drivers.ADS1115.ads1115_differential((0, 2/3)))
 
+# Configure the two speed counters.
 speed_0 = speed.speedCounter()
 speed_1 = speed.speedCounter()
 
+# Configure which pins on the Raspberry Pi are active inputs.
 GPIO.setup(5, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 GPIO.setup(6, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
+# Tie the input pins to the speed counters by making sure the pins
+# correctly trigger the speedCounter when the pin falls.
 GPIO.add_event_detect(5, GPIO.FALLING, callback=speed_0.trigger)
 GPIO.add_event_detect(6, GPIO.FALLING, callback=speed_1.trigger)
 

@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 import time
+import struct
 import serial
 import spidev
 
@@ -23,16 +24,23 @@ def send_recv_speed(speed):
     return inboard, outboard
 
 def send_recv_torque(torque):
-    torque = hex(torque)
+    torque = chr(torque)
+    if len(torque) < 2:
+        torque = torque + chr(0x00)
+
     port.write(torque)
     rcv = port.read(4)
+
     if len(rcv) != 4:
         return None, None
     else:
-        inboard = int(rcv[0]) >> 8 + int(rcv[1])
-        outboard = int(rcv[2]) >> 8 + int(rcv[3])
+        rcv = struct.unpack('>I', rcv)[0]
+        in_val = rcv >> 16
+        out_val = rcv & 0xFFFF
+        inboard = (rcv >> 16 & 0xFF00) + ((rcv >> 16) & 0xFF)
+        outboard = ((rcv & 0xFF00) >> 8) + (rcv & 0xFF)
 
-    return inboard, outboard
+    return in_val, out_val
 
 while True:
     time.sleep(0.009)

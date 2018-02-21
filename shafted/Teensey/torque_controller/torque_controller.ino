@@ -86,12 +86,12 @@ uint16_t Read_Inboard_Torque() {
 uint16_t Acquire_Setpoint() {
   int incomingMSB = 0;
   int incomingLSB = 0;
+  int incoming = 0;
   if (Serial1.available() > 1) {
     /*setpoint = Serial1.read();
     incomingLSB = setpoint & 0xFF;
     incomingMSB = setpoint >> 8;*/
-    incomingLSB = Serial1.read();
-    incomingMSB = Serial1.read();
+    incoming = Serial1.read();
   }
   /*if (uart_available() > 0) {
     incomingMSB = uart_getchar();

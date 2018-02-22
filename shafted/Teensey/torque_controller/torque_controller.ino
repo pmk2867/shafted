@@ -1,9 +1,8 @@
 /* Torque Teensy Controller Code
  *  Action Items to be completed related to this code by priority
- *  1) Test to determine if the code responds to RPi requests
- *  2) Fix software issue preventing data from being read accurately from both inboard 
+ *  1) Fix software issue preventing data from being read accurately from both inboard 
  *     and outboard simultaneously
- *  3) Write code to control Linear Actuator based on RPi torque setpoint 
+ *  2) Write code to control Linear Actuator based on RPi torque setpoint 
  *  
  */
 
@@ -35,19 +34,22 @@ void setup() {
   
   //Initiate Wire (i2c) Library
   Wire.begin();
-
+  
   //Pin Setup
   Wire.setSDA(I2C_SDA); 
   Wire.setSCL(I2C_SCL);
+
+  //I2c Clock setup
+  Wire.setClock(400000);
   
   //Enable i2c Measurement
   Wire.beginTransmission(0x48); //0x48 = adc i2c address
   Wire.endTransmission(); 
 
   //Set Configuration Register Arrays
-  Set_Inboard[0] = 0x81; //Bytes to be written that set Conversion Register to show Inboard Data
+  Set_Inboard[0] = 0x00; //Bytes to be written that set Conversion Register to show Inboard Data
   Set_Inboard[1] = 0x83;
-  Set_Outboard[0] = 0xB1; //Bytes to be written that set Conversion Register to show Outboard Data 
+  Set_Outboard[0] = 0x30; //Bytes to be written that set Conversion Register to show Outboard Data 
   Set_Outboard[1] = 0x83;
 }
 
@@ -86,24 +88,13 @@ uint16_t Read_Outboard_Torque() { // Reads Outboard data
   return result;
 }
 
-/*uint16_t Acquire_t_setpoint() {
-  int incomingMSB = 0;
-  int incomingLSB = 1;
-  int incoming = 0;
-  if (Serial1.available() > 1) {
-    /*t_setpoint = Serial1.read();
-    incomingLSB = t_setpoint & 0xFF;
-    incomingMSB = t_setpoint >> 8;
+/*uint8_t Acquire_t_setpoint() {
+  uint8_t incoming = 0;
+  if (Serial1.available()) {
     incoming = Serial1.read();
   }
-  /*if (uart_available() > 0) {
-    incomingMSB = uart_getchar();
-  }
-  if (uart_available() > 0) {
-    incomingLSB = uart_getchar();
-  }
-  uint16_t result = (incomingMSB << 8) | incomingLSB;
-  return result; }*/
+  return incoming; 
+}*/
 
 
 //Serial Monitor printing for testing purposes
@@ -123,25 +114,30 @@ void Print_data (uint16_t out_torque, uint16_t in_torque) {
   Serial.print(outMSB);
   Serial.print("   Outbboard LSB = ");
   Serial.print(outLSB);
+  Serial.println(" ");
+  Serial.print("Setpoint = ");
+  Serial.print(t_setpoint);
 }
 
 void loop() {
-  time  = millis() - prev_time;
+  //time  = millis() - prev_time;
   raw_inboard_data = Read_Inboard_Torque();
+  delay(15);
   raw_outboard_data = Read_Outboard_Torque();
+  delay(15);
   //prints data to serial monitor every 10ms
-  if (time > 10) {
-     //t_setpoint = Acquire_t_setpoint();
+  /*if (time > 10) {
+     t_setpoint = Acquire_t_setpoint();
      //Serial.println(" ");
      //Serial.print(t_setpoint);
      Print_data(raw_outboard_data, raw_inboard_data);
      Serial.println(" ");
      Serial.print(millis());
      prev_time = millis();
-  }
+  }*/
 } 
 
-void serialEvent() { //response to new data in RX buffer (RPi request)
+void serialEvent1() { //response to new data in RX buffer (RPi request)
   while (Serial1.available()) {//checks RX buffer
     t_setpoint = Serial1.read(); //Acquires setpoint
     
@@ -155,7 +151,7 @@ void serialEvent() { //response to new data in RX buffer (RPi request)
     Serial1.write(outMSB);
     Serial1.write(outLSB);
   }
-}  
+} 
 
 
 

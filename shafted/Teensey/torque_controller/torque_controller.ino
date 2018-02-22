@@ -103,8 +103,8 @@ uint16_t Read_Outboard_Torque() { // Reads Outboard data
     incomingLSB = uart_getchar();
   }
   uint16_t result = (incomingMSB << 8) | incomingLSB;
-  return result;*/
-}
+  return result; }*/
+
 
 //Serial Monitor printing for testing purposes
 void Print_data (uint16_t out_torque, uint16_t in_torque) {
@@ -147,7 +147,7 @@ void serialEvent() { //response to new data in RX buffer (RPi request)
     
     uint8_t outLSB = raw_outboard_data & 0xff; //data processing for transmission
     uint8_t outMSB = (raw_outboard_data >> 8);
-    uint8_t inLSB = raw_inboard_data_torque & 0xff;
+    uint8_t inLSB = raw_inboard_data & 0xff;
     uint8_t inMSB = (raw_inboard_data >> 8);
     
     Serial1.write(inMSB); //data transmission

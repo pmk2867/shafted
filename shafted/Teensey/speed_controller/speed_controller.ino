@@ -43,7 +43,6 @@ uint8_t pos = 0;
 uint16_t setpoint = 0; //control variables
 uint8_t setpointMSB = 0;
 uint8_t setpointLSB = 0;
-bool Z_trigger = false; 
 int time = 0;
 
 //Timer
@@ -66,10 +65,6 @@ void setup() {
   Wire.setSDA(I2C_SDA);
   Wire.setSCL(I2C_SCL);
 
-  //Enable i2c interaction
-  //Wire.beginTransmission(????); //???? = DAC i2c address
-  //Wire.endTransmission(); 
-
   // Defining Interrupts
   attachInterrupt(A_phase, isrA, RISING);
   attachInterrupt(Z_phase, isrZ, RISING);
@@ -88,7 +83,8 @@ void isrA() {
 void isrZ() {
   prev_timeZ = time; //keeps track of time interval for rpm calc
   time = micros();
-  Z_trigger = true; //signals Z has triggered
+  A_cnt = 0;
+  pos = 0;
 }
 
 //Timing Functions
@@ -136,19 +132,13 @@ uint16_t Calc_Z_rpm(volatile int t1, int t2) { //calculates Zrpm
   return rpm;
 }
 
-/*void Decrease_Speed() { //Goes through DAC to tell VFD to descrease motor speed
-  Wire.beginTransmission(byte(????)); --> DAC I2C address
-  Wire.write(byte(????)); //DAC digital input register address
-  Wire.write(decrease speed); //byte message to decrease speed
+void Control_Speed() { //Goes through DAC to tell VFD to control motor speed
+  uint16_t control = setpoint - (Z_rpm - setpoint); //new speed 
+  Wire.beginTransmission(byte(0x62)); //--> DAC I2C address
+  Wire.write(control >> 8); //2byte message with new speed
+  Wire.write(control && 0xff);
   Wire.endTransmission();
 }
-
-void Increase_Speed() { //Goes through DAC to tell VFD to increase motor speed
-  Wire.beginTransmission(byte(????)); --> DAC I2C address
-  Wire.write(byte(????)); //DAC digital input register address
-  Wire.write(increase speed); //byte message to increase speed
-  Wire.endTransmission();
-}*/
 
 void loop() {
   //Calculate relevant quantities
@@ -163,19 +153,4 @@ void loop() {
   Z_rpm_MSB = (Z_rpm >> 8);
   setpointLSB = setpoint & 0xff;
   setpointMSB = (setpoint >> 8);
-  
-  //Reset position when Z phase triggers
-  if (Z_trigger){
-    A_cnt = 0;
-    pos = 0;
-    Z_trigger = false;
-  }
-
-  //Control Decision
-  /*if (Z_rpm > setpoint) {
-    Decrease_Speed();   
-  }
-  if (Z_rpm < setpoint) {
-    Increase_Speed();
-  }*/
 }

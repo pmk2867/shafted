@@ -26,7 +26,7 @@ def send_recv_speed(speed):
 def send_recv_torque(torque):
     torque = chr(torque)
     if len(torque) < 2:
-        torque = torque + chr(0x00)
+        torque = torque
 
     port.write(torque)
     rcv = port.read(4)
@@ -37,10 +37,11 @@ def send_recv_torque(torque):
         rcv = struct.unpack('>I', rcv)[0]
         in_val = rcv >> 16
         out_val = rcv & 0xFFFF
-        inboard = (rcv >> 16 & 0xFF00) + ((rcv >> 16) & 0xFF)
-        outboard = ((rcv & 0xFF00) >> 8) + (rcv & 0xFF)
 
-    return in_val, out_val
+    out_volts = out_val * 0.0001875
+    out_force = (9.7847 * out_volts) + 0.0724
+
+    return in_val, out_force
 
 while True:
     time.sleep(0.009)

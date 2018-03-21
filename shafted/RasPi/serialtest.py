@@ -77,10 +77,6 @@ def send_recv_speed(speed):
     return inboard, outboard
 
 def send_recv_torque(torque):
-    torque = chr(torque)
-    if len(torque) < 2:
-        torque = torque + chr(0x00)
-
     torque_dev.write(struct.pack('>2B', torque, 0))
     rcv = torque_dev.read(4)
 

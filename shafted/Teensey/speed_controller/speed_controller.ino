@@ -9,11 +9,10 @@
  */
 
 //Libraries
-//#include <avr/io.h>
-//#include <avr/interrupt.h>
-#include <SPI.h>
 #include <TimeLib.h>
 //#include <i2c_t3.h> //i2c Library
+#include "t3spi.h"
+
 
 //Defining Pins
 #define A1_phase 22 //encoder data inputs

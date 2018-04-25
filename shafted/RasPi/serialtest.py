@@ -5,18 +5,22 @@ import datetime
 from influxdb import InfluxDBClient
 import json
 import serial
+import RPi.GPIO as GPIO
 import signal
 import spidev
 import struct
 import time
 
+control = 6
+
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(control, GPIO.OUT)
+GPIO.output(control, GPIO.LOW)
+
 torque_dev = serial.Serial("/dev/ttyAMA0", baudrate=115200, timeout=0.010)
-speed_dev = spidev.SpiDev()
+speed_dev = serial.Serial("/dev/ttyUSB0", baudrate=115200, timeout=0.010)
 
-speed_dev.open(0, 0)
-speed_dev.max_speed_hz = 976000
-
-units = {'torque': 'Nm', 'speed': 'RPM'}
+units = {'torque': 'Nm', 'speed': 'RPM', 'position': 'Degrees'}
 
 class Messenger:
     def __init__(self, db_client):
@@ -27,7 +31,7 @@ class Messenger:
     def add_message(self, name, side, value, timestamp):
         message = {}
 
-        assert name in ['speed', 'torque']
+        assert name in ['speed', 'torque', 'position']
         assert side in ['inboard', 'outboard']
 
         message['measurement'] = name
@@ -35,22 +39,9 @@ class Messenger:
         message['time'] = timestamp
         message['fields'] = {units[name] : value}
 
-        if __debug__:
-            print (message)
         self.messages.append(message)
 
     def send_messages(self):
-        '''
-        length = len(self.messages)
-        if length == 0:
-            return
-        current_time = datetime.datetime.now()
-        if length < high_water_mark and \
-            (current_time - self.last_update) < datetime.timedelta(seconds=1):
-            return
-        if __debug__:
-            print("Flushing {} messages".format(length))
-        '''
         self.client.write_points(self.messages, protocol='json')
         self.last_update = datetime.datetime.now()
         self.messages = []
@@ -65,19 +56,33 @@ def sig_handler(_signo, _stack_frame):
     sys.exit(0)
 
 def send_recv_speed(speed):
-    msb = speed >> 8
-    lsb = speed & 0xFF
-    response = speed_dev.xfer2([msb, lsb])
-    if len(response) != 4:
-        return 0, 0
-    else:
-        inboard = response[0] >> 8 + response[1]
-        outboard = response[2] >> 8 + response[3]
+    device_addr = 255
 
-    return inboard, outboard
+    speed_dev.write(struct.pack('>B', device_addr))
+    speed_dev.write(struct.pack('>B', speed))
+
+    rcv = speed_dev.read(12)
+    if len(rcv) != 12:
+        return 0, 0, 0, 0, 0, 0
+    else:
+        rcv = struct.unpack('>12B', rcv)
+        print("Speed =", rcv)
+
+        speed1 = (rcv[0] << 8) + rcv[1]
+        speed2 = (rcv[2] << 8) + rcv[3]
+        pos1 =   (rcv[4] << 8) + rcv[5]
+
+        speed3 = (rcv[6] << 8) + rcv[7]
+        speed4 = (rcv[8] << 8) + rcv[9]
+        pos2 =   (rcv[10] << 8) + rcv[11]
+
+        return speed1, speed2, pos1, speed3, speed4, pos2
 
 def send_recv_torque(torque):
-    torque_dev.write(struct.pack('>2B', torque, 0))
+    device_addr = 254
+
+    torque_dev.write(struct.pack('>B', device_addr))
+    torque_dev.write(struct.pack('>B', torque))
     rcv = torque_dev.read(4)
 
     if len(rcv) != 4:
@@ -86,8 +91,6 @@ def send_recv_torque(torque):
         rcv = struct.unpack('>I', rcv)[0]
         in_val = rcv >> 16
         out_val = rcv & 0xFFFF
-        inboard = (rcv >> 16 & 0xFF00) + ((rcv >> 16) & 0xFF)
-        outboard = ((rcv & 0xFF00) >> 8) + (rcv & 0xFF)
 
     return in_val, out_val
 
@@ -140,26 +143,35 @@ def main():
     database = Messenger(db_client)
 
     while True:
-        time.sleep(0.009)
+        for i in range(200):
+            time.sleep(0.005)
+            in1_s, in2_s, in_p, out1_s, out2_s, out_p = send_recv_speed(i)
+            time.sleep(0.005)
+            in_t, out_t = send_recv_torque(i)
 
-        in_s, out_s = send_recv_speed(600)
-        in_t, out_t = send_recv_torque(20)
+            if __debug__:
+                print("    Speed\t\t\t|   Torque\t|    Position")
+                print("In1\tIn2\tOut1\tOut2\t|In\tOut\t|In\tOut\t")
+                print(str(in1_s) + "\t" +
+                      str(in2_s) + "\t" +
+                      str(out1_s) + "\t" +
+                      str(out2_s) + "\t|" +
+                      str(in_t) + "\t" +
+                      str(out_t) + "\t|" +
+                      str(in_p) + "\t" +
+                      str(out_p) + "\t")
+                print("\n\r")
 
-        if __debug__:
-            print("    Speed\t|   Torque")
-            print("In\tOut\t|In\tOut")
-            print(str(in_s) + "\t" + str(out_s) + "\t|" + str(in_t) + "\t" + str(out_t) + "\t")
-            print("\n\r")
+            timestamp = int(time.time() * 1000000000)
 
-        timestamp = int(time.time() * 1000000000)
+            database.add_message('torque', 'inboard', in_t, timestamp)
+            database.add_message('torque', 'outboard', out_t, timestamp)
+            database.add_message('speed', 'inboard', in1_s, timestamp)
+            database.add_message('speed', 'outboard', out1_s, timestamp)
+            database.add_message('position', 'inboard', in_p, timestamp)
+            database.add_message('position', 'outboard', out_p, timestamp)
 
-        database.add_message('torque', 'inboard', in_t, timestamp)
-        database.add_message('torque', 'outboard', out_t, timestamp)
-        database.add_message('speed', 'inboard', in_s, timestamp)
-        database.add_message('speed', 'outboard', out_s, timestamp)
-
-        database.send_messages()
-
+            database.send_messages()
 if __name__ == "__main__":
     main()
     sys.exit(0)

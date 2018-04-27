@@ -1,143 +1,85 @@
 /* Speed Teensy Code
  *  Action Items to be completed related to this code by priority
- *  1) Test data acquisition from encoders
- *  2) Troubleshoot SPI communication code
- *  3) Test ability to write to the DAC (i2c) and change motor speed
  *  
- *  Data Processing notes:
- *  - position value to be multiplied by 2 by RPi (avoids sending extra byte)
  */
 
 //Libraries
 #include <TimeLib.h>
-//#include <i2c_t3.h> //i2c Library
-#include "t3spi.h"
-
+#include <i2c_t3.h> //i2c Library
 
 //Defining Pins
 #define A1_phase 22 //encoder data inputs
 #define Z1_phase 21
 #define A2_phase 3
 #define Z2_phase 2
+#define I2C_SCL 19 //i2c clock and data pins
+#define I2C_SDA 18
 
-//#define I2C_SCL 19 //i2c clock and data pins
-//#define I2C_SDA 18
+uint8_t first_message = 0; //UART Address
 
-// Counters
+// Time and Position Counters
 volatile int A1_cnt = 0;
-volatile int prev_timeA1 = 0;
-volatile int prev_timeZ1 = 0;
+volatile double prev_timeA1 = 0;
+volatile double prev_timeZ1 = 0;
 volatile int A2_cnt = 0;
-volatile int prev_timeA2 = 0;
-volatile int prev_timeZ2 = 0;
-volatile int i = 0;
+volatile double prev_timeA2 = 0;
+volatile double prev_timeZ2 = 0;
+volatile int Called = 0;
 
 //Global Variables
-
 uint16_t A1_rpm_int = 0;
 uint16_t Z1_rpm_int = 0;
-volatile uint8_t A1_rpm_LSB = 0;
-volatile uint8_t A1_rpm_MSB = 0;
-volatile uint8_t Z1_rpm_LSB = 0;
-volatile uint8_t Z1_rpm_MSB = 0;
-
+uint8_t A1_rpm_LSB = 0;
+uint8_t A1_rpm_MSB = 0;
+uint8_t Z1_rpm_LSB = 0;
+uint8_t Z1_rpm_MSB = 0;
 uint16_t A2_rpm_int = 0;
 uint16_t Z2_rpm_int = 0;
-volatile uint8_t A2_rpm_LSB = 0;
-volatile uint8_t A2_rpm_MSB = 0;
-volatile uint8_t Z2_rpm_LSB = 0;
-volatile uint8_t Z2_rpm_MSB = 0;
+uint8_t A2_rpm_LSB = 0;
+uint8_t A2_rpm_MSB = 0;
+uint8_t Z2_rpm_LSB = 0;
+uint8_t Z2_rpm_MSB = 0;
+uint16_t pos1_int = 0;
+uint16_t pos2_int = 0;
+uint8_t pos1_LSB = 0;
+uint8_t pos1_MSB = 0;
+uint8_t pos2_LSB = 0;
+uint8_t pos2_MSB = 0;
+uint8_t setpoint = 0;
 
-volatile uint8_t pos1_int = 0;
-volatile uint8_t pos2_int = 0;
-
-
-uint16_t setpoint = 0;
-volatile uint8_t set_inMSB = 0;
-volatile uint8_t set_inLSB = 0;
-
-
+//I2C 
+uint8_t Address = 96;
 
 int time = 0;
 
 void setup() {
-  //Initialize Serial Monitor
-  Serial.begin(9600);
+  //Initialize UART Port
+  Serial1.begin(115200);
 
-  //Setup SPI in slave mode
-  pinMode (MISO, OUTPUT);
-  SPCR |= _BV(SPE);
-  SPCR |= _BV(SPIE);
-  
-  //Initiate Wire Library
-  //Wire.begin();
-  
+  //Initiate i2c Library
+  Wire.begin();
+    
   //Pin Setup
   pinMode(A1_phase, INPUT);
   pinMode(Z1_phase, INPUT);
   pinMode(A2_phase, INPUT);
   pinMode(Z2_phase, INPUT);
-  //pinMode(SSpin, OUTPUT);
-  //Wire.setSDA(I2C_SDA);
-  //Wire.setSCL(I2C_SCL);
+  Wire.setSDA(I2C_SDA);
+  Wire.setSCL(I2C_SCL);
+
+  //I2C setup
+  Wire.beginTransmission(byte(Address));
+  Wire.endTransmission();
 
   // Defining Interrupts
   attachInterrupt(A1_phase, isrA1, RISING);
   attachInterrupt(Z1_phase, isrZ1, RISING);
   attachInterrupt(A2_phase, isrA2, RISING);
   attachInterrupt(Z2_phase, isrZ2, RISING);
- // SPI.attachInterrupt();
 }
 
 // ISR's
-/*
-ISR (SPI_STC_vect) {
-  switch(i) {
-    case 0: 
-      set_inMSB = SPDR;
-      SPDR = A1_rpm_MSB;
-      i++;
-      break;
-    case 1: 
-      set_inLSB = SPDR;
-      SPDR = A1_rpm_LSB;
-      i++;
-      break;
-    case 2: 
-      SPDR = Z1_rpm_MSB;
-      i++;
-      break;
-    case 3: 
-      SPDR = Z1_rpm_LSB;
-      i++;
-      break;
-    case 4: 
-      SPDR = pos1_int;
-      i++;
-      break;
-    case 5: 
-      SPDR = A2_rpm_MSB;
-      i++;
-      break;
-    case 6: 
-      SPDR = A2_rpm_LSB;
-      i++;
-      break;
-    case 7: 
-      SPDR = Z2_rpm_MSB;
-      i++;
-      break;
-    case 8: 
-      SPDR = Z2_rpm_LSB;
-      i++;
-      break;
-    case 9: 
-      SPDR = pos2_int;
-      i = 0;
-      break;
-  }
-}
-*/
+
 void isrA1() {
   prev_timeA1 = time; //keeps track of time interval for rpm calc
   time = micros();
@@ -164,58 +106,32 @@ void isrZ2() {
   pos2_int = 0;
 }
 
-
-
-/*void Print_Data() { //Printing to serial monitor (Testing)
-  Serial.println(" "); 
-  Serial.print("A1rpm MSB = ");
-  Serial.print(A1_rpm_MSB);
-  Serial.print("   A1rpm LSB = ");
-  Serial.print(A1_rpm_LSB);
-  Serial.println(" ");
-  Serial.print("Z1rpm MSB = ");
-  Serial.print(Z1_rpm_MSB);
-  Serial.print("   Z1rpm LSB = ");
-  Serial.print(Z1_rpm_LSB);
-  Serial.println(" ");
-  Serial.print("position1 = ");
-  Serial.print(pos1_int);
-    
-  Serial.println(" "); 
-  Serial.print("A2rpm MSB = ");
-  Serial.print(A2_rpm_MSB);
-  Serial.print("   A2rpm LSB = ");
-  Serial.print(A2_rpm_LSB);
-  Serial.println(" ");
-  Serial.print("Z2rpm MSB = ");
-  Serial.print(Z2_rpm_MSB);
-  Serial.print("   Z2rpm LSB = ");
-  Serial.print(Z2_rpm_LSB);
-  Serial.println(" ");
-  Serial.print("position2 = ");
-  Serial.print(pos2_int);
-  Serial.println(" "); 
-}*/
-
 uint16_t Calc_A_rpm(volatile int t1, int t2) { //calculates Arpm
   double tr = 180 * (t2 - t1);
-  uint16_t rpm = 1000000 * 60 * 1 / tr ;
+  uint16_t rpm = 0;
+  if(tr != 0) {
+    rpm = 1000000 * 60 * 1 / tr ;
+  }
   return rpm;
 }
 
 uint16_t Calc_Z_rpm(volatile int t1, int t2) { //calculates Zrpm
   double tr = t2 - t1;
-  uint16_t rpm = 1000000 * 60 * 1 / tr ;
+  uint16_t rpm = 0;
+  if (tr != 0) {
+    rpm = 1000000 * 60 * 1 / tr ;
+  }
   return rpm;
 }
 
-/*void Control_Speed() { //Goes through DAC to tell VFD to control motor speed
-  uint16_t control = setpoint - (Z1_rpm_int - setpoint_int); //new speed 
-  Wire.beginTransmission(byte(0x62)); //--> DAC I2C address
+void Control_Speed() { //Goes through DAC to tell VFD to control motor speed
+  uint16_t control = setpoint - (Z1_rpm_int - setpoint); //new speed 
+  Wire.beginTransmission(byte(Address)); //--> DAC I2C address
+  Wire.write(byte(0x40)); //2nd byte in command sequence
   Wire.write(control >> 8); //2byte message with new speed
-  Wire.write(control && 0xff);
+  Wire.write((control << 4) && 0xff);
   Wire.endTransmission();
-}*/
+}
 
 void loop() {
   //Calculate relevant quantities
@@ -226,8 +142,7 @@ void loop() {
   Z2_rpm_int = Calc_Z_rpm(prev_timeZ2, time);
   pos2_int = A2_cnt * 2;
 
-
-  //data processing for transmission
+  //data processing for transmission & control
   A1_rpm_LSB = A1_rpm_int & 0xff; 
   A1_rpm_MSB = (A1_rpm_int >> 8);
   Z1_rpm_LSB = Z1_rpm_int & 0xff;
@@ -236,14 +151,34 @@ void loop() {
   A2_rpm_MSB = (A2_rpm_int >> 8);
   Z2_rpm_LSB = Z2_rpm_int & 0xff;
   Z2_rpm_MSB = (Z2_rpm_int >> 8);
-
-  //data processing for control
-  setpoint = (set_inMSB << 8) | set_inLSB; 
+  pos1_LSB = pos1_int & 0xff; 
+  pos1_MSB = (pos1_int >> 8);
+  pos2_LSB = pos2_int & 0xff;
+  pos2_MSB = (pos2_int >> 8);
 
   //speed control
-  //Control_Speed();*/
-  //Print data to serial monitor
-  //Print_Data();
+  Control_Speed();
 }
 
+void serialEvent1() { //response to new data in RX buffer (RPi request)
+  while (Serial1.available()) {//checks RX buffer
+    first_message = Serial1.read(); //Acquires setpoint
+    if (first_message  == 255) { //Checks Address sent from RPI
+      while (Serial1.available() == false) {} //waits for next serial input
+      setpoint = Serial1.read(); //Acquires setpoint
+      Serial1.write(A1_rpm_MSB); //data transmission
+      Serial1.write(A1_rpm_LSB);
+      Serial1.write(Z1_rpm_MSB);
+      Serial1.write(Z1_rpm_LSB);
+      Serial1.write(pos1_MSB);
+      Serial1.write(pos1_LSB);
+      Serial1.write(A2_rpm_MSB); 
+      Serial1.write(A2_rpm_LSB);
+      Serial1.write(Z2_rpm_MSB);
+      Serial1.write(Z2_rpm_LSB);
+      Serial1.write(pos2_MSB);
+      Serial1.write(pos2_LSB);
+    }
+  }
+}
 
